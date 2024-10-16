@@ -11,6 +11,12 @@ Versioning Scheme: **YYYY**.**WW**.**MICRO**
 - **WW**: ISO 8601 week number of the year (e.g., `42` for October 16th).
 - **MICRO**: Incremental number for patches within same week, starting at `0`.
 
+## [24.42.1] - 2024-10-16
+
+### Changed
+
+- Tested workflow.
+
 ## [24.42.0] - 2024-10-16
 
 ### Added
