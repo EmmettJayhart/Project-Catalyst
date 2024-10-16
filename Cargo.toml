@@ -1,6 +1,6 @@
 [package]
 name        = "project-catalyst"
-version     = "24.42.0"
+version     = "24.42.1"
 authors     = ["Emmett Jayhart <erudite@jayhart.io>"]
 edition     = "2021"
 description = "Project Catalyst"
