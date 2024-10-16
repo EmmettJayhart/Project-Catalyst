@@ -1,0 +1,114 @@
+name: Generate Candidate
+
+on:
+  workflow_run:
+    workflows: ["Test Dev"]
+    types:
+      - completed
+
+jobs:
+  generate_candidate:
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: |
+          rustup update stable
+          rustup default stable
+
+      - name: Setup Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "<41898282+github-actions[bot]@users.noreply.github.com>"
+          git fetch --all --tags
+
+      - name: Merge to Local Prod
+        run: |
+          git checkout prod
+          git merge origin/dev
+
+      - name: Extract Version from Cargo.toml
+        run: |
+          version=$(grep ^version Cargo.toml | sed -E 's/version *= *"([^"]+)"/\1/')
+          echo "version=$version" >> $GITHUB_ENV
+
+      - name: Get Latest Tag and Determine Candidate Info
+        run: |
+          latest_tag=$(git describe --tags $(git rev-list --tags --max-count=1))
+          base_tag="$latest_tag"
+          candidate_number=0
+          if [[ "$latest_tag" =~ ^(.*)-rc\.([0-9]+)$ ]]; then
+            base_tag="${BASH_REMATCH[1]}"
+            candidate_number="${BASH_REMATCH[2]}"
+          fi
+          echo "latest_tag=$latest_tag" >> $GITHUB_ENV
+          echo "base_tag=$base_tag" >> $GITHUB_ENV
+          echo "candidate_number=$candidate_number" >> $GITHUB_ENV
+
+      - name: Validate Version and Determine Next Candidate Tag
+        run: |
+          version="${{ env.version }}"
+          base_tag="${{ env.base_tag }}"
+          candidate_number="${{ env.candidate_number }}"
+
+          if [ "$candidate_number" -gt 0 ]; then
+            if [ "$version" != "$base_tag" ]; then
+              echo "Error: The version in Cargo.toml ($version) does not match the base version of the latest candidate tag ($base_tag)."
+              exit 1
+            fi
+            candidate_number=$((candidate_number + 1))
+            candidate_tag="${version}-rc.${candidate_number}"
+          else
+            if [ "$(printf '%s\n' "$base_tag" "$version" | sort -V | head -n1)" != "$base_tag" ] || [ "$base_tag" = "$version" ]; then
+              echo "Error: The version in Cargo.toml ($version) must be strictly greater than the latest release version ($base_tag)."
+              exit 1
+            fi
+            candidate_tag="${version}-rc.1"
+          fi
+
+          echo "candidate_tag=$candidate_tag" >> $GITHUB_ENV
+
+      - name: Tag on Candidate
+        run: |
+          git tag ${{ env.candidate_tag }}
+          git push --tags
+
+      - name: Prepare Comitter & Author
+        run: |
+          echo "committer_name=github-actions[bot]" >> $GITHUB_ENV
+          echo "committer_email=<41898282+github-actions[bot]@users.noreply.github.com>" >> $GITHUB_ENV
+          echo "author_name=${{ github.actor }}" >> $GITHUB_ENV
+          echo "author_email=<${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>" >> $GITHUB_ENV
+
+      - name: Create Pull Request to Prod
+        id: pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Release ${{ env.version }}"
+          branch: staging
+          committer: ${{ env.committer_name }} ${{ env.committer_email }}
+          author: ${{ env.author_name }} ${{ env.author_email }}
+          signoff: false
+          delete-branch: false
+          base: prod
+          title: "Release ${{ env.version }}"
+          body: |
+            Automatically generated PR to merge changes from staging to prod.
+          labels: release-candidate
+          assignees: ${{ github.actor }}
+          reviewers: EmmettJayhart
+          draft: false
+
+      - name: Comment on PR
+        if: ${{ steps.pr.outputs.pull-request-number }}
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          pr_number: ${{ steps.pr.outputs.pull-request-number }}
+          message: |
+            Candidate ${{ env.candidate_tag }} is ready for review.

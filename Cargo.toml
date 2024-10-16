@@ -1,0 +1,16 @@
+[package]
+name        = "project-catalyst"
+version     = "24.42.0"
+authors     = ["Emmett Jayhart <erudite@jayhart.io>"]
+edition     = "2021"
+description = "Project Catalyst"
+repository  = "https://github.com/EmmettJayhart/project-catalyst"
+readme      = "README.md"
+license     = "Apache-2.0 OR MIT"
+publish     = false
+resolver    = "2"
+
+[dependencies]
+
+[features]
+dev = []
