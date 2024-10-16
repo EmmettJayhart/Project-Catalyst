@@ -7,7 +7,6 @@ on:
 
 jobs:
   clippy:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
 
     steps:
@@ -46,7 +45,6 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
   taplo:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     continue-on-error: true
 
@@ -87,7 +85,6 @@ jobs:
         run: taplo format --check
 
   prettier:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     continue-on-error: true
 
@@ -118,7 +115,6 @@ jobs:
         run: npx prettier --check "./**/*.{json,yaml}"
 
   markdownlint:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     continue-on-error: true
 
